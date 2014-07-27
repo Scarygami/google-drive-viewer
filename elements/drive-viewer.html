@@ -1,0 +1,332 @@
+<link rel="import" href="../bower_components/polymer/polymer.html">
+<link rel="import" href="../bower_components/core-media-query/core-media-query.html">
+<link rel="import" href="../bower_components/core-scaffold/core-scaffold.html">
+<link rel="import" href="../bower_components/google-signin/google-signin.html">
+<link rel="import" href="../bower_components/google-apis/google-client-api.html">
+<link rel="import" href="../bower_components/core-tooltip/core-tooltip.html">
+<link rel="import" href="../bower_components/core-icons/core-icons.html">
+<link rel="import" href="../bower_components/paper-icon-button/paper-icon-button.html">
+
+<polymer-element name="drive-viewer" attributes="clientId">
+  <template>
+    <style>
+
+      * { box-sizing: border-box; }
+
+      :host {
+        display: block;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        margin: 0;
+        padding: 0;
+      }
+
+      main {
+        padding: 10px;
+      }
+
+      core-scaffold::shadow core-header-panel {
+        background-color: white;
+      }
+
+      core-scaffold core-header-panel[navigation] {
+        background-color: #eee;
+      }
+
+      core-scaffold.noUser::shadow core-drawer-panel::shadow #drawer {
+        display: none;
+      }
+
+      core-scaffold.noUser::shadow core-drawer-panel::shadow #main {
+        left: 0;
+      }
+
+      core-scaffold.noUser::shadow #menuButton {
+        display: none;
+      }
+
+      #folders {
+        padding-top: 10px;
+        transition: opacity ease-in-out 0.3s
+      }
+
+      #folders.inactive {
+        opacity: 0.5;
+      }
+
+      .folder {
+        padding: 5px;
+        cursor: pointer;
+        background-color: rgba(0,0,0,0);
+        border-bottom: 1px solid #ccc;
+        transition: padding ease-in-out 0.3s, background-color ease-in-out 0.3s;
+      }
+
+      .folder.active {
+        font-weight: bold;
+        padding: 10px 5px;
+        background-color: yellow;
+      }
+
+      .folder:hover {
+        background-color: rgba(0,0,0,0.1);
+      }
+
+      .file:hover {
+        background-color: rgba(0,0,0,0.1);
+      }
+
+      .file {
+        border-bottom: 1px solid #ccc;
+      }
+
+      paper-icon-button::shadow core-icon div {
+        background-repeat: no-repeat;
+      }
+
+      a {
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      google-signin.narrow-layout::shadow .buttonText {
+        display: none;
+      }
+
+      google-signin.narrow-layout::shadow .icon {
+        border-right: 0;
+      }
+
+    </style>
+
+    <google-api-loader id="drive" name="drive" version="v2"
+      on-google-api-load="{{displayUser}}">
+    </google-api-loader>
+
+    <core-media-query query="max-width: {{responsiveWidth}}" queryMatches="{{queryMatches}}"></core-media-query>
+
+    <core-scaffold
+      class="{{ {noUser: !signedIn} | tokenList }}"
+      mode="standard"
+      responsiveWidth="{{responsiveWidth}}">
+      <core-header-panel navigation flex mode="standard">
+        <core-toolbar>Folders</core-toolbar>
+        <div id="folders" class="{{{'inactive': updating} | tokenList}}">
+          <template repeat="{{folder in folders}}" id="folder">
+            <div on-click="{{folderClick}}"
+                 class="{{{'folder': true, 'active': folder.id == currentFolder.id} | tokenList}}"
+                 style="padding-left: {{folder.depth * 10}}px">{{folder.title}}</div>
+            <template if="{{folder.showChildren}}">
+              <template ref="folder" repeat="{{folder in folder.children}}"></template>
+            </template>
+          </template>
+        </div>
+      </core-header-panel>
+      <div tool flex>
+        <template if="{{user}}">
+          {{user}}'s Drive
+        </template>
+        <template if="{{!user}}">
+          Polymer Drive Viewer
+        </template>
+      </div>
+      <div tool>
+        <google-signin
+          id="signinButton"
+          clientId="{{clientId}}"
+          scopes="{{scopes}}"
+          on-google-signin-success="{{signIn}}"
+          on-google-signin-failure="{{signOut}}"
+          on-google-signed-out="{{signOut}}"
+          class="{{ {'narrow-layout' : queryMatches} | tokenList }}"
+        ></google-signin>
+      </div>
+      <main>
+        <template if="{{currentFolder && currentFolder.id != 'root'}}">
+          <div layout horizontal center class="file" on-click="{{navigateUp}}">
+            <paper-icon-button icon="arrow-back"></paper-icon-button>
+          </div>
+        </template>
+        <template repeat="{{file in files}}">
+          <div layout horizontal center class="file">
+            <a href="{{file.alternateLink}}" target="_blank" on-click="{{openFile}}"><paper-icon-button iconSrc="{{file.iconLink}}"></paper-icon-button></a>
+            <span flex><a href="{{file.alternateLink}}" target="_blank" on-click="{{openFile}}">{{file.title}}</a></span>
+            <template repeat="{{app in file.apps}}">
+              <core-tooltip label="{{apps[app.id].name}}" position="left">
+                <a href="{{app.link}}" target="_blank"><paper-icon-button iconSrc="{{apps[app.id].icon}}"></paper-icon-button></a>
+              </core-tooltip>
+            </template>
+          </div>
+        </template>
+      </main>
+    </core-scaffold>
+
+  </template>
+
+  <script>
+    (function (global) {
+      Polymer('drive-viewer', {
+        scopes:
+          [
+            'profile',
+            'https://www.googleapis.com/auth/drive.readonly',
+            'https://www.googleapis.com/auth/drive.apps.readonly'
+          ].join(' '),
+        signedIn: false,
+        started: false,
+        currentFolder: null,
+
+        signIn: function () {
+          this.signedIn = true;
+          this.displayUser();
+        },
+        displayUser: function () {
+          if (!this.signedIn || !this.$.drive.api || this.started) { return; }
+          this.started = true;
+          this.folders = [];
+          this.files = [];
+          this.$.drive.api.about.get().execute(function (response) {
+            if (!response || response.error) {
+              this.$.signinButton.signOut();
+              this.signOut();
+              return;
+            }
+            this.user = response.name;
+            this.displayRoot();
+          }.bind(this));
+
+          this.$.drive.api.apps.list().execute(function (response) {
+            var i, j, icon;
+            this.apps = {};
+            if (response && response.items) {
+              for (i = 0; i < response.items.length; i++) {
+                if (response.items[i].icons && response.items[i].icons.length > 0) {
+                  icon = response.items[i].icons[0].iconUrl;
+                  for (j = 0; j < response.items[i].icons.length; j++) {
+                    if (response.items[i].icons[j].category == 'application' &&
+                        response.items[i].icons[j].size >= 24) {
+                          icon = response.items[i].icons[j].iconUrl;
+                          break;
+                    }
+                  }
+                  this.apps[response.items[i].id] = {
+                    name: response.items[i].name,
+                    icon: icon
+                  }
+                }
+              }
+            }
+          }.bind(this));
+        },
+        displayRoot: function () {
+          if (!this.signedIn || !this.$.drive.api) { return; }
+          this.folders = [{
+            id: 'root',
+            title: 'My Drive',
+            depth: 1
+          }];
+          this.displayFolder(this.folders[0]);
+        },
+        folderClick: function (e) {
+          this.displayFolder(e.target.templateInstance.model.folder);
+        },
+        navigateUp: function (e) {
+          this.displayFolder(this.currentFolder.parent);
+        },
+        displayFolder: function (folder) {
+          if (this.updating) { return; }
+          if (this.currentFolder && folder.id == this.currentFolder.id) {
+            folder.showChildren = !folder.showChildren;
+            return;
+          }
+          this.currentFolder = folder;
+          this.files = folder.files || [];
+          if (folder.parent) {
+            folder.parent.showChildren = true;
+          }
+          folder.showChildren = true;
+
+          if (folder.filesChecked || folder.checkingFiles) { return; }
+          this.updating = true;
+          folder.checkingFiles = true;
+          this.$.drive.api.files.list({
+            q: '"' + folder.id + '" in parents and trashed=false',
+            fields: 'items(id,title,mimeType,openWithLinks,alternateLink,iconLink)',
+            maxResults: 1000
+          }).execute(function (response) {
+            var i, app;
+            if (response && response.error) {
+              this.$.signinButton.signOut();
+              this.signOut();
+              return;
+            }
+            folder.filesChecked = true;
+            if (response) {
+              folder.files = response.items || [];
+            } else {
+              folder.files = [];
+            }
+            folder.files.sort(function (a, b) {
+              if (a.title.toUpperCase() < b.title.toUpperCase()) {
+                return -1;
+              }
+              if (a.title.toUpperCase() > b.title.toUpperCase()) {
+                return 1;
+              }
+              return 0;
+            });
+            this.files = folder.files;
+            folder.children = [];
+            for (i = 0; i < folder.files.length; i++) {
+              if (folder.files[i].openWithLinks) {
+                folder.files[i].apps = [];
+                for (app in folder.files[i].openWithLinks) {
+                  if (folder.files[i].openWithLinks.hasOwnProperty(app)) {
+                    folder.files[i].apps.push({
+                      id: app,
+                      link: folder.files[i].openWithLinks[app]
+                    });
+                  }
+                }
+                folder.files[i].openWithLinks = null;
+              }
+              if (folder.files[i].mimeType == 'application/vnd.google-apps.folder') {
+                folder.files[i].parent = folder;
+                folder.files[i].depth = folder.depth + 1;
+                folder.children.push(folder.files[i]);
+              }
+            }
+            folder.showChildren = true;
+            this.updating = false;
+          }.bind(this));
+        },
+        openFile: function (e) {
+          var file = e.target.templateInstance.model.file;
+          if (file.mimeType == 'application/vnd.google-apps.folder') {
+            e.preventDefault();
+            this.displayFolder(file);
+          }
+        },
+        signOut: function () {
+          this.folders = [];
+          this.files = [];
+          this.apps = [];
+          this.user = null;
+          this.signedIn = false;
+          this.started = false;
+          this.currentFolder = false;
+        },
+        ready: function () {
+          this.folders = [];
+          this.files = [];
+        }
+      });
+    }(this));
+  </script>
+</polymer-element>
