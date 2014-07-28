@@ -5,6 +5,8 @@
 <link rel="import" href="../bower_components/google-apis/google-client-api.html">
 <link rel="import" href="../bower_components/core-tooltip/core-tooltip.html">
 <link rel="import" href="../bower_components/core-icons/core-icons.html">
+<link rel="import" href="../bower_components/core-icons/hardware-icons.html">
+<link rel="import" href="../bower_components/core-icon/core-icon.html">
 <link rel="import" href="../bower_components/paper-icon-button/paper-icon-button.html">
 
 <polymer-element name="drive-viewer" attributes="clientId">
@@ -109,7 +111,7 @@
       on-google-api-load="{{displayUser}}">
     </google-api-loader>
 
-    <core-media-query query="max-width: {{responsiveWidth}}" queryMatches="{{queryMatches}}"></core-media-query>
+    <core-media-query query="(max-width: {{responsiveWidth}}), (max-device-width: {{responsiveWidth}})" queryMatches="{{queryMatches}}"></core-media-query>
 
     <core-scaffold
       class="{{ {noUser: !signedIn} | tokenList }}"
@@ -119,9 +121,15 @@
         <core-toolbar>Folders</core-toolbar>
         <div id="folders" class="{{{'inactive': updating} | tokenList}}">
           <template repeat="{{folder in folders}}" id="folder">
-            <div on-click="{{folderClick}}"
-                 class="{{{'folder': true, 'active': folder.id == currentFolder.id} | tokenList}}"
-                 style="padding-left: {{folder.depth * 10}}px">{{folder.title}}</div>
+            <div layout horizontal center class="{{{'folder': true, 'active': folder.id == currentFolder.id} | tokenList}}">
+              <span style="padding-left: {{folder.depth * 10}}px">
+                <core-icon
+                  icon="hardware:{{folder.showChildren ? 'keyboard-arrow-down' : 'keyboard-arrow-right'}}"
+                  style="{{(folder.filesChecked && folder.children.length == 0) ? 'visibility: hidden;' : ''}}"
+                  on-click="{{toggleDisplay}}"></core-icon>
+              </span>
+              <span on-click="{{folderClick}}" flex>{{folder.title}}</span>
+            </div>
             <template if="{{folder.showChildren}}">
               <template ref="folder" repeat="{{folder in folder.children}}"></template>
             </template>
@@ -181,6 +189,7 @@
         signedIn: false,
         started: false,
         currentFolder: null,
+        responsiveWidth: '600px',
 
         signIn: function () {
           this.signedIn = true;
@@ -218,7 +227,7 @@
                   this.apps[response.items[i].id] = {
                     name: response.items[i].name,
                     icon: icon
-                  }
+                  };
                 }
               }
             }
@@ -236,10 +245,19 @@
         folderClick: function (e) {
           this.displayFolder(e.target.templateInstance.model.folder);
         },
+        toggleDisplay: function (e) {
+          var folder = e.target.templateInstance.model.folder;
+          if (!folder.filesChecked) {
+            this.displayFolder(folder);
+          } else {
+            folder.showChildren = !folder.showChildren;
+          }
+        },
         navigateUp: function (e) {
           this.displayFolder(this.currentFolder.parent);
         },
         displayFolder: function (folder) {
+          var parent;
           if (this.updating) { return; }
           if (this.currentFolder && folder.id == this.currentFolder.id) {
             folder.showChildren = !folder.showChildren;
@@ -247,8 +265,10 @@
           }
           this.currentFolder = folder;
           this.files = folder.files || [];
-          if (folder.parent) {
-            folder.parent.showChildren = true;
+          parent = folder.parent;
+          while (parent) {
+            parent.showChildren = true;
+            parent = parent.parent;
           }
           folder.showChildren = true;
 
