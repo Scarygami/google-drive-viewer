@@ -111,7 +111,7 @@
       on-google-api-load="{{displayUser}}">
     </google-api-loader>
 
-    <core-media-query query="(max-width: {{responsiveWidth}}), (max-device-width: {{responsiveWidth}})" queryMatches="{{queryMatches}}"></core-media-query>
+    <core-media-query query="max-width: {{responsiveWidth}}" queryMatches="{{queryMatches}}"></core-media-query>
 
     <core-scaffold
       class="{{ {noUser: !signedIn} | tokenList }}"
