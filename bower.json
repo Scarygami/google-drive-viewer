@@ -1,7 +1,7 @@
 {
-  "name": "polymer-drive-viewer",
+  "name": "google-drive-viewer",
   "version": "0.0.1",
-  "homepage": "https://github.com/Scarygami/polymer-drive-viewer",
+  "homepage": "https://github.com/Scarygami/google-drive-viewer",
   "authors": [
     "Scarygami <scarygami@gmail.com>"
   ],
@@ -15,12 +15,11 @@
     "tests"
   ],
   "dependencies": {
-    "platform": "Polymer/platform#master",
-    "core-ajax": "Polymer/core-ajax#master",
-    "core-scaffold": "Polymer/core-scaffold#master",
-    "google-apis": "PolymerLabs/google-apis#master",
-    "google-signin": "GoogleWebComponents/google-signin#master",
-    "paper-icon-button": "Polymer/paper-icon-button#master",
-    "core-tooltip": "Polymer/core-tooltip#master"
+    "polymer": "Polymer/polymer#^1.0.0",
+    "paper-drawer-panel": "PolymerElements/paper-drawer-panel#^1.0.0",
+    "paper-header-panel": "PolymerElements/paper-header-panel#^1.0.0",
+    "paper-icon-button": "PolymerElements/paper-icon-button#master",
+    "google-signin": "GoogleWebComponents/google-signin#^1.0.0",
+    "discovery-api-elements": "Scarygami/discovery-api-elements#^0.0.1"
   }
 }
