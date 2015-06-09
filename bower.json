@@ -18,8 +18,8 @@
     "polymer": "Polymer/polymer#^1.0.0",
     "paper-drawer-panel": "PolymerElements/paper-drawer-panel#^1.0.0",
     "paper-header-panel": "PolymerElements/paper-header-panel#^1.0.0",
-    "paper-icon-button": "PolymerElements/paper-icon-button#master",
+    "paper-icon-button": "PolymerElements/paper-icon-button#^1.0.0",
     "google-signin": "GoogleWebComponents/google-signin#^1.0.0",
-    "discovery-api-elements": "Scarygami/discovery-api-elements#^0.0.1"
+    "discovery-api-elements": "Scarygami/discovery-api-elements#^0.0.3"
   }
 }

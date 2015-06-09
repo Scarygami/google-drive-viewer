@@ -13,6 +13,8 @@
 <link rel="import" href="../bower_components/iron-icon/iron-icon.html">
 <link rel="import" href="../bower_components/paper-icon-button/paper-icon-button.html">
 
+<link rel="import" href="folder-menu.html">
+
 <dom-module id="drive-viewer">
   <style>
     :host {
@@ -117,28 +119,13 @@
       loaded="{{elementsReady}}"
       ></discovery-api-elements>
 
-    <drive-apps-list response="{{appsResponse}}" id="appsRequest"></drive-apps-list>
-
-    <drive-files-list response="{{filesResponse}}" id="filesRequest"></drive-apps-list>
+    <drive-apps-list response="{{appsResponse}}" auto$="[[allReady(signedIn, elementsReady)]]"></drive-apps-list>
 
     <paper-drawer-panel>
       <paper-header-panel drawer>
         <paper-toolbar><span title>Folders</span></paper-toolbar>
-        <div id="folders" class="{{{'inactive': updating} | tokenList}}">
-          <template is="dom-repeat" items="[[folders]]" id="folder">
-            <div layout horizontal center class="{{{'folder': true, 'active': folder.id == currentFolder.id} | tokenList}}">
-              <span style="padding-left: {{folder.depth * 10}}px">
-                <core-icon
-                  icon="hardware:{{folder.showChildren ? 'keyboard-arrow-down' : 'keyboard-arrow-right'}}"
-                  style="{{(folder.filesChecked && folder.children.length == 0) ? 'visibility: hidden;' : ''}}"
-                  on-click="{{toggleDisplay}}"></core-icon>
-              </span>
-              <span on-click="{{folderClick}}" flex>{{folder.title}}</span>
-            </div>
-            <template if="{{folder.showChildren}}">
-              <template ref="folder" repeat="{{folder in folder.children}}"></template>
-            </template>
-          </template>
+        <div id="folders">
+          <folder-menu folder-id="root" title="My Drive" depth="1" on-show-files="showFiles" id="rootFolder"></folder-menu>
         </div>
       </paper-header-panel>
       <paper-header-panel main>
@@ -204,7 +191,6 @@
           observer: 'loadHandler'
         },
         user: Object,
-        folders: Array,
         files: Array,
         apps: {
           type: Object,
@@ -234,9 +220,11 @@
         this.folders = [];
         this.files = [];
 
-        this.$.appsRequest.go();
+        this.$.rootFolder.display();
+      },
 
-        this.displayRoot();
+      allReady: function (signedIn, elementsReady) {
+        return signedIn && elementsReady;
       },
 
       appsFromApi: function (signedIn, response) {
@@ -267,12 +255,12 @@
       },
 
       displayRoot: function () {
-        this.folders = [{
+        this.rootFolder = {
           id: 'root',
           title: 'My Drive',
           depth: 1
-        }];
-        this.displayFolder(this.folders[0]);
+        };
+        this.displayFolder(this.rootFolder);
       },
       folderClick: function (e) {
         this.displayFolder(e.model.folder);
@@ -288,71 +276,11 @@
       navigateUp: function (e) {
         this.displayFolder(this.currentFolder.parent);
       },
-      displayFolder: function (folder) {
-        var parent;
-        if (this.updating) { return; }
-        if (this.currentFolder && folder.id == this.currentFolder.id) {
-          folder.showChildren = !folder.showChildren;
-          return;
-        }
-        this.currentFolder = folder;
-        this.files = folder.files || [];
-        parent = folder.parent;
-        while (parent) {
-          parent.showChildren = true;
-          parent = parent.parent;
-        }
-        folder.showChildren = true;
-
-        if (folder.filesChecked || folder.checkingFiles) { return; }
-        this.updating = true;
-        folder.checkingFiles = true;
-        this.checkedFolder = folder;
-        this.$.filesRequest.q = '"' + folder.id + '" in parents and trashed=false';
-        this.$.filesRequest.fields = 'items(id,title,mimeType,openWithLinks,alternateLink,iconLink)';
-        this.$.filesRequest.maxResults = 1000;
-        this.$.filesRequest.go();
-      },
       filesChanged: function (response) {
         var i, app;
         var folder = this.checkedFolder;
         folder.filesChecked = true;
-        if (response) {
-          folder.files = response.items || [];
-        } else {
-          folder.files = [];
-        }
-        folder.files.sort(function (a, b) {
-          if (a.title.toUpperCase() < b.title.toUpperCase()) {
-            return -1;
-          }
-          if (a.title.toUpperCase() > b.title.toUpperCase()) {
-            return 1;
-          }
-          return 0;
-        });
-        this.files = folder.files;
-        folder.children = [];
-        for (i = 0; i < folder.files.length; i++) {
-          if (folder.files[i].openWithLinks) {
-            folder.files[i].apps = [];
-            for (app in folder.files[i].openWithLinks) {
-              if (folder.files[i].openWithLinks.hasOwnProperty(app)) {
-                folder.files[i].apps.push({
-                  id: app,
-                  link: folder.files[i].openWithLinks[app]
-                });
-              }
-            }
-            folder.files[i].openWithLinks = null;
-          }
-          if (folder.files[i].mimeType == 'application/vnd.google-apps.folder') {
-            folder.files[i].parent = folder;
-            folder.files[i].depth = folder.depth + 1;
-            folder.children.push(folder.files[i]);
-          }
-        }
-        folder.showChildren = true;
+
         this.updating = false;
       },
       openFile: function (e) {
