@@ -19,6 +19,7 @@
     "paper-drawer-panel": "PolymerElements/paper-drawer-panel#^1.0.0",
     "paper-header-panel": "PolymerElements/paper-header-panel#^1.0.0",
     "paper-icon-button": "PolymerElements/paper-icon-button#^1.0.0",
+    "iron-signals": "PolymerElements/iron-signals#^1.0.0",
     "google-signin": "GoogleWebComponents/google-signin#^1.0.0",
     "discovery-api-elements": "Scarygami/discovery-api-elements#^0.0.3"
   }

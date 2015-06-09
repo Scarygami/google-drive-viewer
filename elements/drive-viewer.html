@@ -73,24 +73,6 @@
       opacity: 0.5;
     }
 
-    .folder {
-      padding: 5px;
-      cursor: pointer;
-      background-color: rgba(0,0,0,0);
-      border-bottom: 1px solid #ccc;
-      transition: padding ease-in-out 0.3s, background-color ease-in-out 0.3s;
-    }
-
-    .folder.active {
-      font-weight: bold;
-      padding: 10px 5px;
-      background-color: yellow;
-    }
-
-    .folder:hover {
-      background-color: rgba(0,0,0,0.1);
-    }
-
     .file:hover {
       background-color: rgba(0,0,0,0.1);
     }
@@ -149,11 +131,11 @@
               <paper-icon-button icon="arrow-back"></paper-icon-button>
             </div>
           </template>
-          <template repeat="{{file in files}}">
+          <template is="dom-repeat" items="[[files]]">
             <div layout horizontal center class="file">
-              <a href="{{file.alternateLink}}" target="_blank" on-click="{{openFile}}"><paper-icon-button iconSrc="{{file.iconLink}}"></paper-icon-button></a>
-              <span flex><a href="{{file.alternateLink}}" target="_blank" on-click="{{openFile}}">{{file.title}}</a></span>
-              <template repeat="{{app in file.apps}}">
+              <a href="{{item.alternateLink}}" target="_blank" on-click="{{openFile}}"><paper-icon-button src="{{item.iconLink}}"></paper-icon-button></a>
+              <span flex><a href="{{item.alternateLink}}" target="_blank" on-click="{{openFile}}">{{item.title}}</a></span>
+              <template is="dom-repeat" items="[[item.apps]]">
                 <core-tooltip label="{{apps[app.id].name}}" position="left">
                   <a href="{{app.link}}" target="_blank"><paper-icon-button iconSrc="{{apps[app.id].icon}}"></paper-icon-button></a>
                 </core-tooltip>
@@ -254,25 +236,10 @@
         return apps;
       },
 
-      displayRoot: function () {
-        this.rootFolder = {
-          id: 'root',
-          title: 'My Drive',
-          depth: 1
-        };
-        this.displayFolder(this.rootFolder);
+      showFiles: function (e) {
+        this.files = e.detail  || [];
       },
-      folderClick: function (e) {
-        this.displayFolder(e.model.folder);
-      },
-      toggleDisplay: function (e) {
-        var folder = e.model.folder;
-        if (!folder.filesChecked) {
-          this.displayFolder(folder);
-        } else {
-          folder.showChildren = !folder.showChildren;
-        }
-      },
+
       navigateUp: function (e) {
         this.displayFolder(this.currentFolder.parent);
       },

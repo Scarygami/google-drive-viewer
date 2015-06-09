@@ -14,18 +14,45 @@
     #title {
       @apply(--layout-flex);
     }
+
+    [invisible] {
+      visibility: hidden;
+    }
+
+    #folder {
+      padding: 5px;
+      cursor: pointer;
+      background-color: rgba(0,0,0,0);
+      border-bottom: 1px solid #ccc;
+      transition: padding ease-in-out 0.3s, background-color ease-in-out 0.3s;
+    }
+
+    #folder[active] {
+      font-weight: bold;
+      padding: 10px 5px;
+      background-color: yellow;
+    }
+
+    #folder:hover {
+      background-color: rgba(0,0,0,0.1);
+    }
   </style>
   <template>
-    <drive-files-list response="{{filesResponse}}" id="filesRequest"></drive-files-list>
-    <div>
+    <drive-files-list response="{{filesResponse}}" id="filesRequest" on-error="cancel"></drive-files-list>
+    <div id="folder" active$="[[active]]">
       <span style$="[[_intendStyle(depth)]]">
-        <iron-icon icon="[[_navIcon(showChildren)]]" hidden$="[[_hideNav(filesChecked, children)]]" on-click="{{toggleDisplay}}"></urib-icon>
+        <iron-icon icon="[[_navIcon(showChildren)]]" invisible$="[[_hideNav(filesChecked, children)]]" on-tap="toggleDisplay"></urib-icon>
       </span>
-      <span on-click="folderClick" id="title">{{title}}</span>
+      <span on-tap="display" id="title">{{title}}</span>
     </div>
-    <template is="dom-repeat" items="[[children]]">
-      <folder-menu folder-id="[[item.folderId]]" title="[[item.title]]" depth="[[item.depth]]" on-show-files="showFiles"></folder-menu>
-    </template>
+      <template is="dom-repeat" items="[[children]]">
+        <folder-menu
+          folder-id="[[item.folderId]]"
+          title="[[item.title]]"
+          depth="[[item.depth]]"
+          on-show-files="showFiles"
+          hidden$="[[!showChildren]]"></folder-menu>
+      </template>
   </template>
 </dom-module>
 
@@ -36,13 +63,13 @@
       folderId: String,
       title: String,
       depth: Number,
-      children: {
-        type: Array,
-        computed: 'childrenFromFiles(files)'
-      },
       files: {
         type: Array,
         computed: 'filesFromApi(filesResponse)'
+      },
+      children: {
+        type: Array,
+        computed: 'childrenFromFiles(files)'
       },
       showChildren: {
         type: Boolean,
@@ -62,7 +89,12 @@
     _hideNav: function (filesChecked, children) {
       return (filesChecked && children.length === 0);
     },
+    cancel: function () {
+      this.checkingFiles = false;
+      this.filesChecked = false;
+    },
     display: function () {
+      this.active = true;
       if (this.checkingFiles) { return; }
       if (this.filesChecked) {
         this.fire('show-files', this.files);
@@ -114,6 +146,7 @@
 
       return files;
     },
+
     childrenFromFiles: function (files) {
       var children;
 
@@ -127,11 +160,21 @@
           })
         }
       }
-
       this.showChildren = true;
 
       return children;
-    }
+    },
 
+    toggleDisplay: function () {
+      if (!this.filesChecked) {
+        this.display();
+      } else {
+        this.showChildren = !this.showChildren;
+      }
+    },
+
+    showFiles: function (e) {
+      this.fire("show-files", e.detail);
+    }
   });
 </script>
