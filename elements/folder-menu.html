@@ -3,6 +3,7 @@
 <link rel="import" href="../bower_components/iron-icons/iron-icons.html">
 <link rel="import" href="../bower_components/iron-icons/hardware-icons.html">
 <link rel="import" href="../bower_components/iron-icon/iron-icon.html">
+<link rel="import" href="../bower_components/iron-signals/iron-signals.html">
 
 <dom-module id="folder-menu">
   <style>
@@ -38,12 +39,22 @@
     }
   </style>
   <template>
-    <drive-files-list response="{{filesResponse}}" id="filesRequest" on-error="cancel"></drive-files-list>
+    <iron-signals
+      on-iron-signal-activated="folderActivated"
+      on-iron-signal-activate="activateFolder"></iron-signals>
+
+    <drive-files-list
+      id="filesRequest"
+      response="{{filesResponse}}"
+      fields="items(id,title,mimeType,openWithLinks,alternateLink,iconLink)"
+      max-results="1000"
+      q="{{_filesQuery(folderId)}}"
+      on-error="cancel"></drive-files-list>
     <div id="folder" active$="[[active]]">
       <span style$="[[_intendStyle(depth)]]">
-        <iron-icon icon="[[_navIcon(showChildren)]]" invisible$="[[_hideNav(filesChecked, children)]]" on-tap="toggleDisplay"></urib-icon>
+        <iron-icon icon="[[_navIcon(showChildren)]]" invisible$="[[_hideNav(filesChecked, children)]]" on-tap="toggleDisplay"></iron-icon>
       </span>
-      <span on-tap="display" id="title">{{title}}</span>
+      <span on-tap="activate" id="title">{{title}}</span>
     </div>
       <template is="dom-repeat" items="[[children]]">
         <folder-menu
@@ -80,6 +91,9 @@
         value: false
       }
     },
+    _filesQuery: function (id) {
+      return '"' + id + '" in parents and trashed=false'
+    },
     _intendStyle: function (depth) {
       return 'padding-left: ' + (depth * 10) + 'px;';
     },
@@ -93,22 +107,30 @@
       this.checkingFiles = false;
       this.filesChecked = false;
     },
-    display: function () {
+    activate: function () {
       this.active = true;
+      this.display();
+      this.fire('iron-signal', {name: 'activated', data: this.folderId});
+    },
+    reset: function () {
+      this.checkingFiles = false;
+      this.filesChecked = false;
+      this.files = [];
+      this.children = [];
+    },
+    display: function () {
       if (this.checkingFiles) { return; }
       if (this.filesChecked) {
-        this.fire('show-files', this.files);
+        if (this.active) {
+          this.fire('show-files', this.files);
+        }
         return;
       }
       this.checkingFiles = true;
-      this.$.filesRequest.q = '"' + this.folderId + '" in parents and trashed=false';
-      this.$.filesRequest.fields = 'items(id,title,mimeType,openWithLinks,alternateLink,iconLink)';
-      this.$.filesRequest.maxResults = 1000;
       this.$.filesRequest.go();
     },
     filesFromApi: function (response) {
       var files;
-      console.log(response);
 
       if (response) {
         files = response.items || [];
@@ -140,7 +162,9 @@
         }
       }
 
-      this.fire('show-files', files);
+      if (this.active) {
+        this.fire('show-files', files);
+      }
       this.filesChecked = true;
       this.checkingFiles = false;
 
@@ -160,21 +184,34 @@
           })
         }
       }
-      this.showChildren = true;
+      if (this.active) {
+        this.showChildren = true;
+      }
 
       return children;
     },
 
     toggleDisplay: function () {
+      this.showChildren = !this.showChildren;
       if (!this.filesChecked) {
         this.display();
-      } else {
-        this.showChildren = !this.showChildren;
       }
     },
 
     showFiles: function (e) {
       this.fire("show-files", e.detail);
+    },
+
+    folderActivated: function (e, detail) {
+      if (detail !== this.folderId) {
+        this.active = false;
+      }
+    },
+
+    activateFolder: function (e, detail) {
+      if (detail === this.folderId) {
+        this.activate();
+      }
     }
   });
 </script>

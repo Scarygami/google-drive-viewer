@@ -66,19 +66,20 @@
 
     #folders {
       padding-top: 10px;
-      transition: opacity ease-in-out 0.3s
-    }
-
-    #folders.inactive {
-      opacity: 0.5;
-    }
-
-    .file:hover {
-      background-color: rgba(0,0,0,0.1);
     }
 
     .file {
       border-bottom: 1px solid #ccc;
+      @apply(--layout-horizontal);
+      @apply(--layout-center);
+    }
+
+    .file .title {
+      @apply(--layout-flex);
+    }
+
+    .file:hover {
+      background-color: rgba(0,0,0,0.1);
     }
 
     paper-icon-button::shadow core-icon div {
@@ -101,12 +102,12 @@
       loaded="{{elementsReady}}"
       ></discovery-api-elements>
 
-    <drive-apps-list response="{{appsResponse}}" auto$="[[allReady(signedIn, elementsReady)]]"></drive-apps-list>
+    <drive-apps-list response="{{appsResponse}}" auto$="[[signedIn]]"></drive-apps-list>
 
     <paper-drawer-panel>
       <paper-header-panel drawer>
         <paper-toolbar><span title>Folders</span></paper-toolbar>
-        <div id="folders">
+        <div id="folders" hidden$="[[!allReady(signedIn, elementsReady)]]">
           <folder-menu folder-id="root" title="My Drive" depth="1" on-show-files="showFiles" id="rootFolder"></folder-menu>
         </div>
       </paper-header-panel>
@@ -132,13 +133,11 @@
             </div>
           </template>
           <template is="dom-repeat" items="[[files]]">
-            <div layout horizontal center class="file">
-              <a href="{{item.alternateLink}}" target="_blank" on-click="{{openFile}}"><paper-icon-button src="{{item.iconLink}}"></paper-icon-button></a>
-              <span flex><a href="{{item.alternateLink}}" target="_blank" on-click="{{openFile}}">{{item.title}}</a></span>
+            <div class="file">
+              <a href="{{item.alternateLink}}" target="_blank" on-click="openFile"><paper-icon-button src="{{item.iconLink}}"></paper-icon-button></a>
+              <span class="title"><a href="{{item.alternateLink}}" target="_blank" on-click="openFile">{{item.title}}</a></span>
               <template is="dom-repeat" items="[[item.apps]]">
-                <core-tooltip label="{{apps[app.id].name}}" position="left">
-                  <a href="{{app.link}}" target="_blank"><paper-icon-button iconSrc="{{apps[app.id].icon}}"></paper-icon-button></a>
-                </core-tooltip>
+                <a href="{{item.link}}" target="_blank" title="{{_appName(apps, item.id)}}"><paper-icon-button src="{{_appIcon(apps, item.id)}}"></paper-icon-button></a>
               </template>
             </div>
           </template>
@@ -164,15 +163,13 @@
             ].join(' ');
           }
         },
-        signedIn: {
-          type: Boolean,
-          observer: 'loadHandler'
+        signedIn: Boolean,
+        elementsReady: Boolean,
+        user: {
+          type: Object,
+          computed: 'basicProfile(signedIn, elementsReady)',
+          observer: 'userChanged'
         },
-        elementsReady: {
-          type: Boolean,
-          observer: 'loadHandler'
-        },
-        user: Object,
         files: Array,
         apps: {
           type: Object,
@@ -181,28 +178,33 @@
         filesResponse: {
           type: Object,
           observer: 'filesChanged'
-        },
-        currentFolder: Object
+        }
       },
 
-      loadHandler: function () {
-        if (!this.signedIn || !this.elementsReady) {
-          this.user = undefined;
-          this.folders = [];
-          this.files = [];
-          this.currentFolder = undefined;
-          return;
-        }
+      _appIcon: function (apps, id) {
+        return apps[id].icon;
+      },
+
+      _appName: function (apps, id) {
+        return apps[id].name;
+      },
+
+      basicProfile: function (signedIn, elementsReady) {
+        if (!signedIn || !elementsReady) { return undefined; }
         var profile = gapi.auth2.getAuthInstance().currentUser.get().getBasicProfile();
-        this.user = {
+        return {
           name: profile.getName(),
           image: profile.getImageUrl()
         };
+      },
 
-        this.folders = [];
-        this.files = [];
-
-        this.$.rootFolder.display();
+      userChanged: function () {
+        if (this.user) {
+          this.$.rootFolder.activate();
+        } else {
+          this.files = [];
+          this.$.rootFolder.reset();
+        }
       },
 
       allReady: function (signedIn, elementsReady) {
@@ -243,6 +245,7 @@
       navigateUp: function (e) {
         this.displayFolder(this.currentFolder.parent);
       },
+
       filesChanged: function (response) {
         var i, app;
         var folder = this.checkedFolder;
@@ -250,11 +253,12 @@
 
         this.updating = false;
       },
+
       openFile: function (e) {
-        var file = e.model.file;
+        var file = e.model.item;
         if (file.mimeType == 'application/vnd.google-apps.folder') {
           e.preventDefault();
-          this.displayFolder(file);
+          this.fire('iron-signal', {name: 'activate', data: file.id});
         }
       }
     });
